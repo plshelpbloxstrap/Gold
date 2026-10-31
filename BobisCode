@@ -1,0 +1,289 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local LocalPlayer = Players.LocalPlayer
+
+local State = {
+    HitboxEnabled = false,
+    HitboxSize = 15,
+    TriggerEnabled = false,
+    CritEnabled = false,
+    OriginalData = {},
+    AttackCooldowns = {},
+    HandExtender = nil
+}
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BobisMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -100, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.Text = "BOBIS MENU"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.Parent = MainFrame
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Size = UDim2.new(1, 0, 0, 15)
+SubTitle.Position = UDim2.new(0, 0, 0, 20)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "by mokodiii"
+SubTitle.TextColor3 = Color3.fromRGB(90, 130, 255)
+SubTitle.Font = Enum.Font.GothamMedium
+SubTitle.TextSize = 10
+SubTitle.Parent = MainFrame
+
+local HitboxBtn = Instance.new("TextButton")
+HitboxBtn.Size = UDim2.new(1, -20, 0, 30)
+HitboxBtn.Position = UDim2.new(0, 10, 0, 40)
+HitboxBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+HitboxBtn.BorderSizePixel = 0
+HitboxBtn.Text = "Hitbox Expander"
+HitboxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+HitboxBtn.Font = Enum.Font.Gotham
+HitboxBtn.TextSize = 12
+HitboxBtn.Parent = MainFrame
+
+local TriggerBtn = Instance.new("TextButton")
+TriggerBtn.Size = UDim2.new(1, -20, 0, 30)
+TriggerBtn.Position = UDim2.new(0, 10, 0, 75)
+TriggerBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+TriggerBtn.BorderSizePixel = 0
+TriggerBtn.Text = "Trigger Bot"
+TriggerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TriggerBtn.Font = Enum.Font.Gotham
+TriggerBtn.TextSize = 12
+TriggerBtn.Parent = MainFrame
+
+local CritBtn = Instance.new("TextButton")
+CritBtn.Size = UDim2.new(1, -20, 0, 30)
+CritBtn.Position = UDim2.new(0, 10, 0, 110)
+CritBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+CritBtn.BorderSizePixel = 0
+CritBtn.Text = "Always Crit"
+CritBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CritBtn.Font = Enum.Font.Gotham
+CritBtn.TextSize = 12
+CritBtn.Parent = MainFrame
+
+local SizeBox = Instance.new("TextBox")
+SizeBox.Size = UDim2.new(0, 60, 0, 20)
+SizeBox.Position = UDim2.new(0, 10, 0, 150)
+SizeBox.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+SizeBox.BorderSizePixel = 0
+SizeBox.Text = "15"
+SizeBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SizeBox.Font = Enum.Font.Gotham
+SizeBox.TextSize = 12
+SizeBox.Parent = MainFrame
+
+local function SafeRestore(hrp)
+    if State.OriginalData[hrp] then
+        hrp.Size = State.OriginalData[hrp].Size
+        hrp.Transparency = State.OriginalData[hrp].Transparency
+        hrp.Color = State.OriginalData[hrp].Color
+        State.OriginalData[hrp] = nil
+    end
+end
+
+HitboxBtn.MouseButton1Click:Connect(function()
+    State.HitboxEnabled = not State.HitboxEnabled
+    if State.HitboxEnabled then
+        HitboxBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 90)
+        HitboxBtn.Text = "Hitbox Expander [ON]"
+    else
+        HitboxBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        HitboxBtn.Text = "Hitbox Expander"
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr.Character then
+                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then SafeRestore(hrp) end
+            end
+        end
+    end
+end)
+
+TriggerBtn.MouseButton1Click:Connect(function()
+    State.TriggerEnabled = not State.TriggerEnabled
+    if State.TriggerEnabled then
+        TriggerBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 90)
+        TriggerBtn.Text = "Trigger Bot [ON]"
+    else
+        TriggerBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        TriggerBtn.Text = "Trigger Bot"
+        State.AttackCooldowns = {}
+        if State.HandExtender then
+            State.HandExtender:Destroy()
+            State.HandExtender = nil
+        end
+    end
+end)
+
+CritBtn.MouseButton1Click:Connect(function()
+    State.CritEnabled = not State.CritEnabled
+    if State.CritEnabled then
+        CritBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 90)
+        CritBtn.Text = "Always Crit [ON]"
+    else
+        CritBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+        CritBtn.Text = "Always Crit"
+    end
+end)
+
+SizeBox.FocusLost:Connect(function()
+    local num = tonumber(SizeBox.Text)
+    if num and num > 0 and num <= 100 then
+        State.HitboxSize = num
+        SizeBox.Text = tostring(num)
+    else
+        SizeBox.Text = tostring(State.HitboxSize)
+    end
+end)
+
+local function ProcessHitbox()
+    if not State.HitboxEnabled then return end
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            
+            if hrp and hum and hum.Health > 0 then
+                if not State.OriginalData[hrp] then
+                    State.OriginalData[hrp] = {
+                        Size = hrp.Size,
+                        Transparency = hrp.Transparency,
+                        Color = hrp.Color
+                    }
+                end
+                hrp.Size = Vector3.new(State.HitboxSize, State.HitboxSize, State.HitboxSize)
+                hrp.Transparency = 0.8
+                hrp.Color = Color3.fromRGB(120, 120, 120)
+            end
+        end
+    end
+end
+
+local function ProcessTrigger()
+    if not State.TriggerEnabled then 
+        if State.HandExtender then
+            State.HandExtender:Destroy()
+            State.HandExtender = nil
+        end
+        return 
+    end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local myHrp = char:FindFirstChild("HumanoidRootPart")
+    local tool = char:FindFirstChildOfClass("Tool")
+    local rightHand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+    
+    if not myHrp or not tool or not rightHand then return end
+
+    if not State.HandExtender or State.HandExtender.Parent ~= rightHand then
+        if State.HandExtender then State.HandExtender:Destroy() end
+        
+        local ext = Instance.new("Part")
+        ext.Name = "Hitbox"
+        ext.Size = Vector3.new(rightHand.Size.X, rightHand.Size.Y, rightHand.Size.Z + 2.5)
+        ext.Transparency = 1
+        ext.CanCollide = false
+        ext.CanQuery = false
+        ext.CanTouch = false
+        ext.Massless = true
+        
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = rightHand
+        weld.Part1 = ext
+        weld.Parent = ext
+        
+        ext.CFrame = rightHand.CFrame * CFrame.new(0, 0, -1.5)
+        ext.Parent = rightHand
+        State.HandExtender = ext
+    else
+        State.HandExtender.CFrame = rightHand.CFrame * CFrame.new(0, 0, -1.5)
+    end
+
+    local attackOrigin = State.HandExtender.Position
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local targetHrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local targetHum = plr.Character:FindFirstChildOfClass("Humanoid")
+            
+            if targetHrp and targetHum and targetHum.Health > 0 then
+                local dist = (attackOrigin - targetHrp.Position).Magnitude
+                local checkRange = State.HitboxEnabled and State.HitboxSize or 6
+                
+                if dist <= (checkRange / 2) + 3.5 then
+                    if not State.AttackCooldowns[plr.UserId] then
+                        State.AttackCooldowns[plr.UserId] = true
+                        
+                        pcall(function() tool:Activate() end)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                        
+                        task.delay(0.15, function()
+                            if State.AttackCooldowns[plr.UserId] then
+                                State.AttackCooldowns[plr.UserId] = nil
+                            end
+                        end)
+                    end
+                else
+                    if State.AttackCooldowns[plr.UserId] then
+                        State.AttackCooldowns[plr.UserId] = nil
+                    end
+                end
+            end
+        end
+    end
+end
+
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    
+    if method == "FireServer" and self.Name == "GeneralHit" then
+        if State.CritEnabled then
+            local args = {...}
+            if args[1] then
+                return oldNamecall(self, args[1], true, unpack(args, 3))
+            end
+        end
+    end
+    
+    return oldNamecall(self, ...)
+end)
+
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        ProcessHitbox()
+        ProcessTrigger()
+    end)
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        for hrp, _ in pairs(State.OriginalData) do
+            local char = hrp.Parent
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if not char or not hum or hum.Health <= 0 then
+                State.OriginalData[hrp] = nil
+            end
+        end
+    end
+end)
